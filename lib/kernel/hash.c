@@ -114,7 +114,7 @@ hash_replace (struct hash *h, struct hash_elem *new) {
 
 	rehash (h);
 
-	return old;
+	return old; 
 }
 
 /* Finds and returns an element equal to E in hash table H, or a
