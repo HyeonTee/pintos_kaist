@@ -4,6 +4,7 @@
 #include "vm/vm.h"
 #include "vm/inspect.h"
 #include "threads/vaddr.h"
+#include "threads/mmu.h"
 
 /* Initializes the virtual memory subsystem by invoking each subsystem's
  * intialize codes. */
@@ -156,11 +157,19 @@ vm_evict_frame(void)
 static struct frame *
 vm_get_frame(void)
 {
-	struct frame *frame = NULL;
+	struct frame *frame = (struct frame *)malloc(sizeof(struct frame));
 	/* TODO: Fill this function. */
+	frame->kva = palloc_get_page(PAL_USER);
+	frame->page = NULL;
+
+	if(!frame->kva){
+		frame = NULL;
+		PANIC("TODO: swap out");
+	}
 
 	ASSERT(frame != NULL);
 	ASSERT(frame->page == NULL);
+	
 	return frame;
 }
 
@@ -199,8 +208,10 @@ void vm_dealloc_page(struct page *page)
 /* Claim the page that allocate on VA. */
 bool vm_claim_page(void *va UNUSED)
 {
-	struct page *page = NULL;
+	struct page *page = spt_find_page(&thread_current()->spt, va); // spt에 이미 있는 page이미 있는 것을 가져옴
 	/* TODO: Fill this function */
+	if (page == NULL)
+		return false;
 
 	return vm_do_claim_page(page);
 }
@@ -216,6 +227,12 @@ vm_do_claim_page(struct page *page)
 	page->frame = frame;
 
 	/* TODO: Insert page table entry to map page's VA to frame's PA. */
+	struct thread *curr = thread_current();
+	
+	// mmu를 세팅해주는 것 
+	// 참고적으로 rw 세팅을 언제 해야되는 지 확인...!
+	pml4_set_page(curr->pml4, page->va, frame->kva, page->rw);
+
 
 	return swap_in(page, frame->kva);
 }
