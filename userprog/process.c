@@ -835,7 +835,8 @@ static bool install_page (void *upage, void *kpage, bool writable) {
 	return (pml4_get_page (t->pml4, upage) == NULL
 			&& pml4_set_page (t->pml4, upage, kpage, writable));
 }
-#else
+// #else
+// 까먹지마 
 /* From here, codes will be used after project 3.
  * If you want to implement the function for only project 2, implement it on the
  * upper block. */
@@ -844,6 +845,19 @@ static bool lazy_load_segment (struct page *page, void *aux) {
 	/* TODO: Load the segment from the file */
 	/* TODO: This called when the first page fault occurs on address VA. */
 	/* TODO: VA is available when calling this function. */
+	struct aux_struct *aux = aux;
+	// 사이즈 안맞으면 다 프리해버림
+	if (file_read_at(aux->vmfile, page->frame->kva, aux->read_bytes, aux->ofs ) != (int) aux->read_bytes)
+	{
+		palloc_free_page(page->frame->kva);
+		free(aux);
+		return false;
+	}
+	// 사이즈 맞아 그러면 memset을 적절히 새롭개 해줌
+	memset(page->frame->kva + aux->read_bytes, 0, aux->zero_bytes );
+	free(aux);
+	
+	return true;
 }
 
 /* Loads a segment starting at offset OFS in FILE at address
