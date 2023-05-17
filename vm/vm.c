@@ -65,8 +65,26 @@ bool vm_alloc_page_with_initializer(enum vm_type type, void *upage, bool writabl
 		/* TODO: Create the page, fetch the initialier according to the VM type,
 		 * TODO: and then create "uninit" page struct by calling uninit_new. You
 		 * TODO: should modify the field after calling the uninit_new. */
-
-		/* TODO: Insert the page into the spt. */
+		if (spt_find_page(spt, upage) == NULL)
+		{
+			struct page *new_page = (struct page *)malloc(sizeof(struct page));
+			//TODO: Create the page, fetch the initialier according to the VM type,
+			switch (VM_TYPE(type))
+			{
+				case VM_ANON:
+					uninit_new(new_page, upage, init, type, aux, anon_initializer);
+					break;
+				
+				case VM_FILE:
+					uninit_new(new_page, upage, init, type, aux, file_backed_initializer);
+					break;
+			}
+			new_page->rw = writable;
+			// new_page->pml4 = thread_current()->pml4;
+			/* TODO: Insert the page into the spt. */
+			return spt_insert_page(spt, new_page);
+		}
+		return false;
 	}
 err:
 	return false;
@@ -153,7 +171,7 @@ vm_evict_frame(void)
 {
 	struct frame *victim UNUSED = vm_get_victim();
 	/* TODO: swap out the victim and return the evicted frame. */
-
+	swap_out(victim->page);
 	return NULL;
 }
 
@@ -199,9 +217,32 @@ bool vm_try_handle_fault(struct intr_frame *f UNUSED, void *addr UNUSED,
 						 bool user UNUSED, bool write UNUSED, bool not_present UNUSED)
 {
 	struct supplemental_page_table *spt UNUSED = &thread_current()->spt;
-	struct page *page = NULL;
+	
 	/* TODO: Validate the fault */
+	if (is_kernel_vaddr(addr) || addr == NULL)
+	{
+		return false;
+	}
+
 	/* TODO: Your code goes here */
+	// page fault중에서도 지금 valid한 상황
+	// SPT에서 page를 찾아보자
+	struct page *page = spt_find_page(spt, addr);
+	if (page == NULL)
+		return false;
+
+	// 쓸수 있는 지 확인하자
+	if (!page->rw && write)
+		return false;
+	/*
+	 *
+	 *
+	 *
+	 * 여기를 고쳐야하는 데 조금 어렵다잉 
+	 * 
+	 * 
+	 * 
+	*/
 
 	return vm_do_claim_page(page);
 }
