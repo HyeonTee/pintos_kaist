@@ -18,6 +18,8 @@ void vm_init(void)
 	register_inspect_intr();
 	/* DO NOT MODIFY UPPER LINES. */
 	/* TODO: Your code goes here. */
+
+
 }
 
 /* Get the type of the page. This function is useful if you want to know the
@@ -47,7 +49,6 @@ static struct frame *vm_evict_frame(void);
 bool vm_alloc_page_with_initializer(enum vm_type type, void *upage, bool writable,
 									vm_initializer *init, void *aux)
 {
-
 	ASSERT(VM_TYPE(type) != VM_UNINIT)
 
 	struct supplemental_page_table *spt = &thread_current()->spt;
@@ -59,7 +60,22 @@ bool vm_alloc_page_with_initializer(enum vm_type type, void *upage, bool writabl
 		 * TODO: and then create "uninit" page struct by calling uninit_new. You
 		 * TODO: should modify the field after calling the uninit_new. */
 
+		struct page *new_page = palloc_get_page(PAL_USER);
+
+		if(VM_TYPE(type)==VM_ANON){
+			uninit_new(new_page, upage, init, type, aux, anon_initializer);
+		}
+		else if(VM_TYPE(type)==VM_FILE){
+			uninit_new(new_page, upage, init, type, aux, file_backed_initializer);
+		}
+
+		new_page ->rw = writable;
 		/* TODO: Insert the page into the spt. */
+
+		return spt_insert_page(spt, new_page);
+		//-------------------------------------------------
+		//success변수 선언 이후 처리
+		//-------------------------------------------------
 	}
 err:
 	return false;
@@ -133,9 +149,35 @@ void spt_remove_page(struct supplemental_page_table *spt, struct page *page)
 static struct frame *
 vm_get_victim(void)
 {
-	struct frame *victim = NULL;
+struct frame *victim = NULL;
 	/* TODO: The policy for eviction is up to you. */
 
+	/* pintos project3 */
+	struct thread * curr = thread_current();
+	struct hash hash = curr->spt->spt_hash;
+	struct hash_iterator *iter;
+	hash_first(iter,&hash);
+	while(hash_next(iter)) {
+
+		struct page * cur_page = hash_entry(iter->elem, struct page , hash_elem);
+
+		if(pml4_is_accessed(curr->pml4, cur_page->va)) {
+			pml4_set_accessed(curr->pml4, cur_page->va, false);
+			continue;
+		}
+		if(cur_page->frame == NULL) continue;
+		
+		if (page_get_type(cur_page) == VM_FILE)
+		{
+			victim = cur_page->frame;
+			break;
+		}
+		else if (page_get_type(cur_page) == VM_ANON)
+		{
+			victim = cur_page->frame;
+			break;
+		}
+	}
 	return victim;
 }
 
@@ -144,10 +186,17 @@ vm_get_victim(void)
 static struct frame *
 vm_evict_frame(void)
 {
-	struct frame *victim UNUSED = vm_get_victim();
+	struct frame *victim UNUSED = vm_get_victim ();
 	/* TODO: swap out the victim and return the evicted frame. */
 
-	return NULL;
+	/* pintos project3 */
+	if(victim != NULL){
+		struct thread *curr = thread_current();
+		struct page *victim_page = victim->page;
+
+		swap_out(victim_page);
+	}
+	return victim;
 }
 
 /* palloc() and get frame. If there is no available page, evict the page
@@ -162,14 +211,15 @@ vm_get_frame(void)
 	frame->kva = palloc_get_page(PAL_USER);
 	frame->page = NULL;
 
-	if(!frame->kva){
+	if (!frame->kva)
+	{
 		frame = NULL;
 		PANIC("TODO: swap out");
 	}
 
 	ASSERT(frame != NULL);
 	ASSERT(frame->page == NULL);
-	
+
 	return frame;
 }
 
@@ -190,9 +240,16 @@ bool vm_try_handle_fault(struct intr_frame *f UNUSED, void *addr UNUSED,
 						 bool user UNUSED, bool write UNUSED, bool not_present UNUSED)
 {
 	struct supplemental_page_table *spt UNUSED = &thread_current()->spt;
-	struct page *page = NULL;
+	struct page *page = spt_find_page(spt, addr);
 	/* TODO: Validate the fault */
 	/* TODO: Your code goes here */
+
+	if(is_kernel_vaddr(addr)){
+		return false;
+	}
+
+	//stack growth -------------------------------------------------------------------
+	//--------------------------------------------------------------------------------
 
 	return vm_do_claim_page(page);
 }
@@ -222,17 +279,20 @@ vm_do_claim_page(struct page *page)
 {
 	struct frame *frame = vm_get_frame();
 
+	if (frame == NULL) {
+		frame = vm_evict_frame();
+	}
+
 	/* Set links */
 	frame->page = page;
 	page->frame = frame;
 
 	/* TODO: Insert page table entry to map page's VA to frame's PA. */
 	struct thread *curr = thread_current();
-	
-	// mmu를 세팅해주는 것 
+
+	// mmu를 세팅해주는 것
 	// 참고적으로 rw 세팅을 언제 해야되는 지 확인...!
 	pml4_set_page(curr->pml4, page->va, frame->kva, page->rw);
-
 
 	return swap_in(page, frame->kva);
 }
