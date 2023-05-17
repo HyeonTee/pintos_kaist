@@ -44,11 +44,18 @@ static struct frame *vm_evict_frame(void);
 /* Create the pending page object with initializer. If you want to create a
  * page, do not create it directly and make it through this function or
  * `vm_alloc_page`. */
+/*
+ * 페이지 request --> 이 함수 --> 적절한 initializing를 할당 시킴 --> 유저프로그램으로 돌아감
+ * 유저 프로그램으로 돌아가서 execute --> 페이지 폴트 --> uninit_initialize가 일어난다. 
+ * 				*/
 bool vm_alloc_page_with_initializer(enum vm_type type, void *upage, bool writable,
 									vm_initializer *init, void *aux)
 {
+	// vm_type: 어떠한 타입으로 initialize 할것인지 
+	// upage: user page address
+	// vm_initializer: init할려는 함수
 
-	ASSERT(VM_TYPE(type) != VM_UNINIT)
+	ASSERT(VM_TYPE(type) != VM_UNINIT) // 이 뜻은 back up이 어딘가에는 되어있다는 것 
 
 	struct supplemental_page_table *spt = &thread_current()->spt;
 
@@ -157,6 +164,8 @@ vm_evict_frame(void)
 static struct frame *
 vm_get_frame(void)
 {
+	//🐬 아무래도 malloc은 free block을 사용하기 때문에 메모리 누수 관리에 도움이 될수도? 
+	//🐬 근데 사실 gitbook에는 palloc이라고 써져 있지 않나? ㅎㅎㅎㅎ테스트 통과할려고 하는 듯 
 	struct frame *frame = (struct frame *)malloc(sizeof(struct frame));
 	/* TODO: Fill this function. */
 	frame->kva = palloc_get_page(PAL_USER);

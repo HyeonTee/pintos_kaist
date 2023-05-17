@@ -202,6 +202,7 @@ pml4_destroy (uint64_t *pml4) {
  * register. */
 void
 pml4_activate (uint64_t *pml4) {
+	/*🪼결과적으로 cr3 레지스터에 page directory의 물리적인 시작 주소가 들어가는데*/
 	lcr3 (vtop (pml4 ? pml4 : base_pml4));
 }
 
@@ -232,7 +233,7 @@ pml4_set_page (uint64_t *pml4, void *upage, void *kpage, bool rw) {
 	ASSERT (pg_ofs (upage) == 0);
 	ASSERT (pg_ofs (kpage) == 0);
 	ASSERT (is_user_vaddr (upage));
-	ASSERT (pml4 != base_pml4);
+	ASSERT (pml4 != base_pml4); 
 
 	uint64_t *pte = pml4e_walk (pml4, (uint64_t) upage, 1);
 
