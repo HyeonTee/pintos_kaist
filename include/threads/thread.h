@@ -120,8 +120,6 @@ struct thread {
     struct list_elem donation_elem; // for Multiple Donation - Donor Thread
     // *************************ADDED LINE ENDS HERE************************* //
 
-
-
     // ******************************LINE ADDED****************************** //
     // Project 2-2-1: User Programs - System Call - Basics
     int exit_status; // System Call 구현시 상태 체크 위한 플래그 변수. Used in userprog/syscall.c
@@ -144,6 +142,10 @@ struct thread {
 
     struct file *running;
     // *************************ADDED LINE ENDS HERE************************* //
+	
+	uintptr_t user_rsp;
+	uintptr_t stack_bottom;
+
 
 #ifdef USERPROG
 	/* Owned by userprog/process.c. */

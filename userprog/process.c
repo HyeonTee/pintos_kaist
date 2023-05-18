@@ -427,7 +427,9 @@ static void process_cleanup (void) {
 	struct thread *curr = thread_current ();
 
 #ifdef VM
-	supplemental_page_table_kill (&curr->spt);
+	if (!hash_empty(&curr->spt.spt_hash)) {
+		supplemental_page_table_kill (&curr->spt);
+	}
 #endif
 
 	uint64_t *pml4;
@@ -555,6 +557,7 @@ void argument_stack(char **argv, int argc, struct intr_frame *if_){
     // 5. Set rdi, rsi (rdi : 문자열 목적지 주소, rsi : 문자열 출발지 주소)
     if_->R.rdi = argc;
     if_->R.rsi = if_->rsp + SAU;
+	thread_current()->user_rsp = if_->rsp;
 }
 // *************************ADDED LINE ENDS HERE************************* //
 
@@ -835,8 +838,7 @@ static bool install_page (void *upage, void *kpage, bool writable) {
 	return (pml4_get_page (t->pml4, upage) == NULL
 			&& pml4_set_page (t->pml4, upage, kpage, writable));
 }
-// #else
-// 까먹지마 
+#else
 /* From here, codes will be used after project 3.
  * If you want to implement the function for only project 2, implement it on the
  * upper block. */
@@ -845,18 +847,27 @@ static bool lazy_load_segment (struct page *page, void *aux) {
 	/* TODO: Load the segment from the file */
 	/* TODO: This called when the first page fault occurs on address VA. */
 	/* TODO: VA is available when calling this function. */
-	struct aux_struct *aux = aux;
-	// 사이즈 안맞으면 다 프리해버림
-	if (file_read_at(aux->vmfile, page->frame->kva, aux->read_bytes, aux->ofs ) != (int) aux->read_bytes)
-	{
-		palloc_free_page(page->frame->kva);
-		free(aux);
+
+	/* aux로 전달 받은 file data */
+	struct file_info *file_info = (struct file_info *)aux;
+	
+	struct file *file = file_info->file;
+	off_t ofs = file_info->ofs;
+	int page_read_bytes = file_info->page_read_bytes;
+	int page_zero_bytes = file_info->page_zero_bytes;
+
+	/* file의 현재 위치를 파일의 시작점에서 로드해야 할 ofs 바이트로 변경 */
+	file_seek(file, ofs);
+
+	/* load segment */
+	if (file_read(file, page->frame->kva, page_read_bytes) != page_read_bytes) {
+		free(file_info);
 		return false;
 	}
-	// 사이즈 맞아 그러면 memset을 적절히 새롭개 해줌
-	memset(page->frame->kva + aux->read_bytes, 0, aux->zero_bytes );
-	free(aux);
-	
+
+	/* set up zero bytes space */
+	memset(page->frame->kva + page_read_bytes, 0, page_zero_bytes);
+
 	return true;
 }
 
@@ -880,6 +891,7 @@ static bool load_segment (struct file *file, off_t ofs, uint8_t *upage,
 	ASSERT (pg_ofs (upage) == 0);
 	ASSERT (ofs % PGSIZE == 0);
 
+	/* load segment에 page allocation이 끝나면 read_bytes, zero_bytes가 0이 됨 */
 	while (read_bytes > 0 || zero_bytes > 0) {
 		/* Do calculate how to fill this page.
 		 * We will read PAGE_READ_BYTES bytes from FILE
@@ -887,29 +899,50 @@ static bool load_segment (struct file *file, off_t ofs, uint8_t *upage,
 		size_t page_read_bytes = read_bytes < PGSIZE ? read_bytes : PGSIZE;
 		size_t page_zero_bytes = PGSIZE - page_read_bytes;
 
-		/* TODO: Set up aux to pass information to the lazy_load_segment. */
-		void *aux = NULL;
-		if (!vm_alloc_page_with_initializer (VM_ANON, upage,
-					writable, lazy_load_segment, aux))
+		/* lazy_load_segment로 aux 전달을 위해 file_info 구조체 만들기 */
+		struct file_info *aux = (struct file_info *)malloc(sizeof(struct file_info));
+
+		aux->file = file;
+		aux->ofs = ofs;
+		aux->page_read_bytes = page_read_bytes;
+		aux->page_zero_bytes = page_zero_bytes;
+
+		/* 해당 upage에 struct page 할당, load 전에는 uninit page */
+		/* page fault로 물리 메모리로 load될 때 할당 시 입력받은 page type로 변환하고 lazy_load_segment 실행시켜 upload */
+		if (!vm_alloc_page_with_initializer (VM_ANON, upage, writable, lazy_load_segment, aux)){
 			return false;
+		}
 
 		/* Advance. */
 		read_bytes -= page_read_bytes;
 		zero_bytes -= page_zero_bytes;
 		upage += PGSIZE;
+		ofs += PGSIZE;
 	}
 	return true;
 }
 
 /* Create a PAGE of stack at the USER_STACK. Return true on success. */
-static bool setup_stack (struct intr_frame *if_) {
-	bool success = false;
+static bool setup_stack (struct intr_frame *if_)
+{
+	bool success = true;
 	void *stack_bottom = (void *) (((uint8_t *) USER_STACK) - PGSIZE);
 
 	/* TODO: Map the stack on stack_bottom and claim the page immediately.
 	 * TODO: If success, set the rsp accordingly.
 	 * TODO: You should mark the page is stack. */
-	/* TODO: Your code goes here */
+
+	if (!vm_alloc_page_with_initializer(VM_ANON, stack_bottom, true, NULL, NULL)) {
+		success = false;
+	}
+
+	/* 바로 argument들을 stack에 쌓아야 하기 때문에 lazy load 필요 없음 */
+	if (!vm_claim_page(stack_bottom)) {
+		success = false;
+	}
+
+	/* set the stack pointer */
+	if_->rsp = USER_STACK;
 
 	return success;
 }
