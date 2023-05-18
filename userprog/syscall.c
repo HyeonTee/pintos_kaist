@@ -82,6 +82,8 @@ void syscall_handler (struct intr_frame *f UNUSED) {
     int sys_number = f -> R.rax; // 유저 스택에 저장되어 있는 시스템 콜 번호를 sys_number 변수에 저장
     // switch 문 통해 해당되는 시스템 콜 호출
     // REFERENCE in include/lib/syscall-nr.h
+	//thread_current()->user_rsp = f->rsp;
+
     switch(sys_number){
         case SYS_HALT: // Halt the operating system.
             halt();
@@ -151,7 +153,7 @@ void check_address(void *addr) {
     // user virtual address 인지 (is_user_vaddr) = 커널 VM이 아닌지
     // 주소가 NULL 은 아닌지
     // 유저 주소 영역내를 가르키지만 아직 할당되지 않았는지 (pml4_get_page)
-    if (!is_user_vaddr(addr) || addr == NULL || pml4_get_page(curr->pml4, addr) == NULL){
+    if (!is_user_vaddr(addr) || addr == NULL || spt_find_page(&thread_current()->spt, addr) == NULL){
             exit(-1);
     }
 }
