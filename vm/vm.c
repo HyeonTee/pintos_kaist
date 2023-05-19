@@ -192,8 +192,9 @@ vm_stack_growth(void *addr UNUSED)
 	if (spt_find_page(&thread_current()->spt, addr)) {
 		return;
 	}
-	uintptr_t addr_page = pg_round_down(addr);
-	vm_alloc_page(VM_ANON, addr_page, true);
+
+	uintptr_t stack_bottom = pg_round_down(addr);
+	vm_alloc_page(VM_ANON, stack_bottom, true);
 }
 
 /* Handle the fault on write_protected page */
@@ -207,20 +208,24 @@ bool vm_try_handle_fault(struct intr_frame *f UNUSED, void *addr UNUSED,
 						 bool user UNUSED, bool write UNUSED, bool not_present UNUSED)
 {
 	struct supplemental_page_table *spt UNUSED = &thread_current()->spt;
-	struct page *page = spt_find_page(spt, addr);
 	bool success;
 
-	if(is_kernel_vaddr(addr) || addr == NULL || page == NULL){
+	if(is_kernel_vaddr(addr) || addr == NULL){
 		return false;
 	}
 
 	/* setup stack growth */
 	uintptr_t stack_limit = USER_STACK - (1 << 20);
 	uintptr_t rsp = user ? f->rsp : thread_current()->user_rsp;
-	uintptr_t stack_bottom = pg_round_down(rsp);
+	//uintptr_t stack_bottom = pg_round_down(rsp);
 
-	if (addr < stack_bottom && addr >= stack_limit && addr >= rsp-8) {
+	if (addr >= rsp - 8 && addr <= USER_STACK && addr >= stack_limit) {
 		vm_stack_growth(addr);
+	}
+	
+	struct page *page = spt_find_page(spt, addr);
+	if (page == NULL) {
+		return false;
 	}
 
 	success = vm_do_claim_page(page);
@@ -265,6 +270,7 @@ static bool vm_do_claim_page (struct page *page)
 
 	// mmu를 세팅해주는 것
 	// 참고적으로 rw 세팅을 언제 해야되는 지 확인...!
+	// 
 	if (!pml4_set_page(curr->pml4, page->va, frame->kva, page->rw)){
 		return false;
 	}
