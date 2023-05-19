@@ -859,8 +859,9 @@ static bool lazy_load_segment (struct page *page, void *aux) {
 	/* file의 현재 위치를 파일의 시작점에서 로드해야 할 ofs 바이트로 변경 */
 	file_seek(file, ofs);
 
+	int temp;
 	/* load segment */
-	if (file_read(file, page->frame->kva, page_read_bytes) != page_read_bytes) {
+	if ((temp = file_read(file, page->frame->kva, page_read_bytes)) != page_read_bytes) {
 		free(file_info);
 		return false;
 	}
@@ -925,7 +926,6 @@ static bool load_segment (struct file *file, off_t ofs, uint8_t *upage,
 /* Create a PAGE of stack at the USER_STACK. Return true on success. */
 static bool setup_stack (struct intr_frame *if_)
 {
-	bool success = true;
 	void *stack_bottom = (void *) (((uint8_t *) USER_STACK) - PGSIZE);
 
 	/* TODO: Map the stack on stack_bottom and claim the page immediately.
@@ -933,17 +933,17 @@ static bool setup_stack (struct intr_frame *if_)
 	 * TODO: You should mark the page is stack. */
 
 	if (!vm_alloc_page_with_initializer(VM_ANON, stack_bottom, true, NULL, NULL)) {
-		success = false;
+		return false;
 	}
 
 	/* 바로 argument들을 stack에 쌓아야 하기 때문에 lazy load 필요 없음 */
 	if (!vm_claim_page(stack_bottom)) {
-		success = false;
+		return false;
 	}
 
 	/* set the stack pointer */
 	if_->rsp = USER_STACK;
 
-	return success;
+	return true;
 }
 #endif /* VM */
