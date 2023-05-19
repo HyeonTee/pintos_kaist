@@ -189,6 +189,9 @@ vm_get_frame(void)
 static void
 vm_stack_growth(void *addr UNUSED)
 {
+	if (spt_find_page(&thread_current()->spt, addr)) {
+		return;
+	}
 	uintptr_t addr_page = pg_round_down(addr);
 	vm_alloc_page(VM_ANON, addr_page, true);
 }
@@ -205,10 +208,10 @@ bool vm_try_handle_fault(struct intr_frame *f UNUSED, void *addr UNUSED,
 {
 	struct supplemental_page_table *spt UNUSED = &thread_current()->spt;
 	struct page *page = spt_find_page(spt, addr);
-	bool success = true;
+	bool success;
 
 	if(is_kernel_vaddr(addr) || addr == NULL || page == NULL){
-		success = false;
+		return false;
 	}
 
 	/* setup stack growth */
@@ -262,7 +265,9 @@ static bool vm_do_claim_page (struct page *page)
 
 	// mmu를 세팅해주는 것
 	// 참고적으로 rw 세팅을 언제 해야되는 지 확인...!
-	pml4_set_page(curr->pml4, page->va, frame->kva, page->rw);
+	if (!pml4_set_page(curr->pml4, page->va, frame->kva, page->rw)){
+		return false;
+	}
 
 	return swap_in(page, frame->kva);
 }

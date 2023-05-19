@@ -1,0 +1,14 @@
+FAIL
+Kernel panic in run: PANIC at ../../vm/vm.c:179 in vm_get_frame(): TODO: swap out
+Call stack: 0x8004217ec2 0x8004220d55 0x800422103b 0x8004220f78 0x800421cc3a 0x8004208fca 0x80042093e8 0x40012e 0x400fc9 0x401012
+Translation of call stack:
+0x0000008004217ec2: debug_panic (lib/kernel/debug.c:32)
+0x0000008004220d55: vm_get_frame (vm/vm.c:182)
+0x000000800422103b: vm_do_claim_page (vm/vm.c:253)
+0x0000008004220f78: vm_try_handle_fault (vm/vm.c:226)
+0x000000800421cc3a: page_fault (userprog/exception.c:145)
+0x0000008004208fca: intr_handler (threads/interrupt.c:352)
+0x00000080042093e8: intr_entry (threads/intr-stubs.o:?)
+0x000000000040012e: (unknown)
+0x0000000000400fc9: (unknown)
+0x0000000000401012: (unknown)
