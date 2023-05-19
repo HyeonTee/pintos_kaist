@@ -1,0 +1,22 @@
+FAIL
+Kernel panic in run: PANIC at ../../threads/palloc.c:321 in palloc_free_multiple(): assertion `bitmap_all (pool->used_map, page_idx, page_cnt)' failed.
+Call stack: 0x8004217ec2 0x800420b824 0x800421bb36 0x80042076fb 0x800421d156 0x800421cc76 0x8004208fca 0x80042093e8 0x800421bbe2 0x800421bb8e 0x80042076fb 0x800421d156 0x800421ce48 0x800421cceb 0x40066d 0x400291 0x400ef2 0x400f3b
+Translation of call stack:
+0x0000008004217ec2: debug_panic (lib/kernel/debug.c:32)
+0x000000800420b824: palloc_free_multiple (threads/palloc.c:322)
+0x000000800421bb36: process_exit (userprog/process.c:417)
+0x00000080042076fb: thread_exit (threads/thread.c:624)
+0x000000800421d156: create (userprog/syscall.c:177)
+0x000000800421cc76: page_fault (userprog/exception.c:146)
+0x0000008004208fca: intr_handler (threads/interrupt.c:352)
+0x00000080042093e8: intr_entry (threads/intr-stubs.o:?)
+0x000000800421bbe2: process_cleanup (userprog/process.c:438)
+0x000000800421bb8e: process_exit (userprog/process.c:423)
+0x00000080042076fb: thread_exit (threads/thread.c:624)
+0x000000800421d156: create (userprog/syscall.c:177)
+0x000000800421ce48: syscall_handler (userprog/syscall.c:95)
+0x000000800421cceb: no_sti (userprog/syscall-entry.o:?)
+0x000000000040066d: (unknown)
+0x0000000000400291: (unknown)
+0x0000000000400ef2: (unknown)
+0x0000000000400f3b: (unknown)

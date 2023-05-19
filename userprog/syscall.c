@@ -82,7 +82,7 @@ void syscall_handler (struct intr_frame *f UNUSED) {
     int sys_number = f -> R.rax; // 유저 스택에 저장되어 있는 시스템 콜 번호를 sys_number 변수에 저장
     // switch 문 통해 해당되는 시스템 콜 호출
     // REFERENCE in include/lib/syscall-nr.h
-	//thread_current()->user_rsp = f->rsp;
+	thread_current()->user_rsp = f->rsp;
 
     switch(sys_number){
         case SYS_HALT: // Halt the operating system.

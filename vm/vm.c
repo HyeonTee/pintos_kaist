@@ -216,10 +216,11 @@ bool vm_try_handle_fault(struct intr_frame *f UNUSED, void *addr UNUSED,
 
 	/* setup stack growth */
 	uintptr_t stack_limit = USER_STACK - (1 << 20);
+	/* user mode-> kernel mode일 때만 프로세서가 stack pointer를 저장하므로 intr_frame 외에 rsp를 저장할 방법 마련 */
 	uintptr_t rsp = user ? f->rsp : thread_current()->user_rsp;
 	//uintptr_t stack_bottom = pg_round_down(rsp);
 
-	if (addr >= rsp - 8 && addr <= USER_STACK && addr >= stack_limit) {
+	if (addr <= USER_STACK && addr >= stack_limit && addr >= rsp-8) {
 		vm_stack_growth(addr);
 	}
 	
